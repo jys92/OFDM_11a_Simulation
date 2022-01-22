@@ -1,5 +1,23 @@
 #include <iostream>
 #include <vector>
+#include <complex>
+#include <iomanip>
+using namespace std::complex_literals;
+
+std::vector<char> interleaver_add_sign(std::vector<char> in_put, int n_cbps, int n_bpsc) {
+    int s = std::max(n_bpsc/2, 1);
+    std::vector<char> out_put(n_cbps, 0);
+    int i, j;
+    for (int k = 0 ; k < n_cbps ; k++) {
+        i = (int)((n_cbps/16)*(k%16) + (int)(k/16));
+        j = (int)(s*(int)(i/s) + (int)(i + n_cbps-(int)(16*i/n_cbps))%s);
+        if(in_put[k] == 1) 
+            out_put[j] = 1;
+        else
+            out_put[j] = -1;
+    }
+    return out_put;
+}
 
 int main() {
 
@@ -27,7 +45,6 @@ int main() {
     m_binary_vec.insert(m_binary_vec.begin(), 16, 0);
     m_binary_vec.insert(m_binary_vec.end(), 6, 0);
     m_binary_vec.insert(m_binary_vec.end(), 42, 0);
-
     
     int scrambler_state[7] = {1, 0, 1, 1, 1, 0, 1};
     int middle_value;
@@ -56,24 +73,99 @@ int main() {
         c_state[0] = m_binary_vec[i];
     }
 
-
-
     std::vector<char> puncture_out;
     for (int i = 0; i < cc_out.size(); i++) {
         if( i%18==0||i%18==1||i%18==2||i%18==5||i%18==6||i%18==7||i%18==8||i%18==11
             ||i%18==12||i%18==13||i%18==14||i%18==17 ) {
-        //  if( i%18!=3 && i%18!=4 && i%18!=9 && i%18!=10 && i%18!=15 && i%18!=16 ) {
             puncture_out.push_back(cc_out[i]);
         }
     }
 
-    std::cout << std::endl;
+    int N_CBPS = 192;
+    int Byte_Data = m_hex_vec.size();
+    int N_BPSC = 4;
+    int Packet_Num = puncture_out.size() / N_CBPS;
+    std::vector<char> interleaver_out;
+    std::vector<char> temp;
+
+    for (int i = 0; i < Packet_Num; i++) {
+        temp = interleaver_add_sign({&puncture_out[i*N_CBPS], &puncture_out[(i+1)*N_CBPS]}, N_CBPS, N_BPSC);
+        interleaver_out.insert(interleaver_out.end(), temp.begin(), temp.end());
+    }   
+
+    std::vector<std::complex<double>> fd_data;
+    std::vector<char> mapping_in;
+    
+    std::vector<std::vector<char>> check_patterns = {{-1,-1,-1,-1}, {-1,-1,-1,1}, {-1,-1,1,-1},
+       {-1,-1,1,1}, {-1,1,-1,-1}, {-1,1,-1,1}, {-1,1,1,-1}, {-1,1,1,1}, {1,-1,-1,-1}, 
+       {1,-1,-1,1}, {1,-1,1,-1}, {1,-1,1,1}, {1,1,-1,-1}, {1,1,-1,1}, {1,1,1,-1}, {1,1,1,1}};
+
+    /*
+    for (int i = 0; i < interleaver_out.size() ; i+=N_BPSC) {
+        mapping_in = {&interleaver_out[i], &interleaver_out[i+N_BPSC]};
+        if      (mapping_in == check_patterns[0]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*(-3.0-3.0i);
+        else if (mapping_in == check_patterns[1]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*(-3.0-1.0i);
+        else if (mapping_in == check_patterns[2]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*(-3.0+3.0i);
+        else if (mapping_in == check_patterns[3]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*(-3.0+1.0i);
+        else if (mapping_in == check_patterns[4]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*(-1.0-3.0i);
+        else if (mapping_in == check_patterns[5]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*(-1.0-1.0i);
+        else if (mapping_in == check_patterns[6]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*(-1.0+3.0i);
+        else if (mapping_in == check_patterns[7]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*(-1.0+1.0i);
+        else if (mapping_in == check_patterns[8]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*( 3.0-3.0i);
+        else if (mapping_in == check_patterns[9]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*( 3.0-1.0i);
+        else if (mapping_in == check_patterns[10]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*( 3.0+3.0i);
+        else if (mapping_in == check_patterns[11]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*( 3.0+1.0i);
+        else if (mapping_in == check_patterns[12]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*( 1.0-3.0i);
+        else if (mapping_in == check_patterns[13]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*( 1.0-1.0i);
+        else if (mapping_in == check_patterns[14]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*( 1.0+3.0i);
+        else if (mapping_in == check_patterns[15]) 
+            fd_data[i/4] = (1.0 / std::sqrt(10.0))*( 1.0+1.0i);
+    }
+    */
 
 
-    std::vector<char> print_data = puncture_out;
+    std::vector<char> test;
+    test = {&interleaver_out[0], &interleaver_out[4]};
+    char ch[4] = {-1, 1, 1, 1};
+    std::vector<char> check_pattern;
+    check_pattern = {-1, 1, -1, 1};
+    if (test == check_pattern ) {
+        std::cout << "OK" << std::endl;
+    }
+    if (test != check_pattern ) {
+        std::cout << "NG" << std::endl;
+    }
+
+
+    for (auto elem : test) {
+        std::cout << (int)elem << std::endl;
+    }
+
+
+    std::complex<double> x, y, z;
+    std::vector<std::complex<double>> vec_c;
+
+
+    // For pattern check!!
+    std::vector<char> print_data = interleaver_out;
     int inner = 1;
     for (auto elem :print_data) {
-        std::cout << (int)elem;
+        std::cout << std::setw(2) << (int)elem;
         if (inner%8 == 0) { 
             std::cout<<" ";
         }
@@ -83,69 +175,8 @@ int main() {
 
     std::cout << print_data.size() << std::endl;
     std::cout << print_data.capacity() << std::endl;
-
-    std::cout << "test code====" << std::endl;
-    int a = 0, b = 1;
-    char c;
-    c = a^b;
-    std::cout << (int)c << std::endl;
-
     return 0;
 }
 
 
-
-
-void BitInterleaver(int *InOut, int Length, int IDX_Stream, int N_CBPS, int N_BPSC, int PPDUFormat)
-{
-	int N_col, N_row, N_rot;
-	int s;
-
-	int k = 0;	// the index of the coded bit before the first permutation
-	int i = 0;	// the index after the first and before the second permutation
-	int j = 0;	// the index after the second permutation anf before third
-	int r = 0;	// the index after the third permutation and just prior to modulation mapping
-	int c = 0;
-
-	//int *temp;
-	//temp = (int *)calloc(Length, sizeof(int));
-	int temp[104*6];
-
-//	FILE *TestFile;
-//	TestFile = fopen("Vector/BitIntIndex.txt", "a");	
-
-	if(PPDUFormat == LEG20IN20)     { N_col=16; N_row=3*N_BPSC; N_rot=11; }
-	else if(PPDUFormat == HT20IN20) { N_col=13; N_row=4*N_BPSC; N_rot=11; }
-	else		                    { N_col=18; N_row=6*N_BPSC; N_rot=29; }
-	
-
-	s = (N_BPSC/2) ? N_BPSC/2 : 1;
-
-	for(k=0; k<Length; k++)
-	{
-//		i = N_row*(k%N_col) + (int)floor(double(k/N_col));
-//		j = s*(int)floor(double(i/s)) + (i+N_CBPS-(int)floor(double(N_col*i/N_CBPS)))%s;
-//		c = (j-((2*IDX_Stream)%3 + 3*(int)floor(double(IDX_Stream/3)))*N_rot*N_BPSC);
-
-		i = N_row*(k%N_col) + (k/N_col);
-		j = s*(i/s) + (i+N_CBPS-((N_col*i)/N_CBPS))%s;
-		c = ( j-((2*IDX_Stream) %3 + 3*(int)(IDX_Stream/3))*N_rot*N_BPSC );
-
-//		fprintf(TestFile, "%d\t%d\t%d\t%d\n", k, i, j, c);  
-
-		while(c<0)
-			c += N_CBPS;
-
-		r = c%N_CBPS;
-
-		temp[r] = InOut[k];
-	}
-
-	for(i=0; i<Length; i++)
-		InOut[i] = temp[i];
-	
-	//free(temp);
-//	fclose(TestFile);
-
-}   // BitInterleaver()
 

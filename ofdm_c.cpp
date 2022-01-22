@@ -4,27 +4,35 @@
 int main() {
 
     std::vector<long long int> m_hex_vec;
-    m_hex_vec = {0x0402002e00, 0x6008cd37a6, 0x0020d6013c, 0xf1006008ad, 0x3baf00004a, 
-             0x6f792c2062, 0x7269676874, 0x2073706172, 0x6b206f6620, 0x646976696e,
-             0x6974792c0a, 0x4461756768, 0x746572206f, 0x6620456c79, 0x7369756d2c,
-             0x0a46697265, 0x2d696e7369, 0x7265642077, 0x6520747265, 0x61673321b6};
+    m_hex_vec ={0x04, 0x02, 0x00, 0x2E, 0x00, 0x60, 0x08, 0xCD, 0x37, 0xA6,
+                0x00, 0x20, 0xD6, 0x01, 0x3C, 0xF1, 0x00, 0x60, 0x08, 0xAD,
+                0x3B, 0xAF, 0x00, 0x00, 0x4A, 0x6F, 0x79, 0x2C, 0x20, 0x62,
+                0x72, 0x69, 0x67, 0x68, 0x74, 0x20, 0x73, 0x70, 0x61, 0x72,
+                0x6B, 0x20, 0x6F, 0x66, 0x20, 0x64, 0x69, 0x76, 0x69, 0x6E,
+                0x69, 0x74, 0x79, 0x2C, 0x0A, 0x44, 0x61, 0x75, 0x67, 0x68,
+                0x74, 0x65, 0x72, 0x20, 0x6F, 0x66, 0x20, 0x45, 0x6C, 0x79,
+                0x73, 0x69, 0x75, 0x6D, 0x2C, 0x0A, 0x46, 0x69, 0x72, 0x65,
+                0x2D, 0x69, 0x6E, 0x73, 0x69, 0x72, 0x65, 0x64, 0x20, 0x77,
+                0x65, 0x20, 0x74, 0x72, 0x65, 0x61, 0x67, 0x33, 0x21, 0xB6};
 
     std::vector<char> m_binary_vec;
-    long long int mask;
+    int mask;
     for (auto elem : m_hex_vec) {
-        mask = 0x8000000000;
-        for (int i = 0; i < 40; i++) {
+        mask = 0x01;
+        for (int i = 0; i < 8; i++) {
             m_binary_vec.push_back((mask & elem) ? 1 : 0);
-            mask >>= 1;
+            mask <<= 1;
         }
     }
     m_binary_vec.insert(m_binary_vec.begin(), 16, 0);
     m_binary_vec.insert(m_binary_vec.end(), 6, 0);
     m_binary_vec.insert(m_binary_vec.end(), 42, 0);
+
     
     int scrambler_state[7] = {1, 0, 1, 1, 1, 0, 1};
     int middle_value;
-    for (std::vector<char>::iterator iter = m_binary_vec.begin(); iter < m_binary_vec.end(); iter++) {
+
+    for (std::vector<char>::iterator iter = m_binary_vec.begin(); iter < m_binary_vec.end(); ++iter) {
         middle_value = scrambler_state[3] ^ scrambler_state[6];
         *iter = middle_value ^ (*iter);
         for (int j = 6; j > 0; j--) 
@@ -38,15 +46,17 @@ int main() {
     }
     
     std::vector<char> cc_out;
-    int c_stat[6] = {0, 0, 0, 0, 0, 0};
+    int c_state[6] = {0, 0, 0, 0, 0, 0};
     for (int i = 0; i < m_binary_vec.size(); i++) {
-        cc_out.push_back( m_binary_vec[i]^c_stat[1]^c_stat[2]^c_stat[4]^c_stat[5] );
-        cc_out.push_back( m_binary_vec[i]^c_stat[0]^c_stat[1]^c_stat[2]^c_stat[5] );
-        c_stat[0] = m_binary_vec[i];
+        cc_out.push_back( m_binary_vec[i]^c_state[1]^c_state[2]^c_state[4]^c_state[5] );
+        cc_out.push_back( m_binary_vec[i]^c_state[0]^c_state[1]^c_state[2]^c_state[5] );
         for (int j = 5; j >= 1; j--) {
-            c_stat[j] = c_stat[j-1];
+            c_state[j] = c_state[j-1];
         }
+        c_state[0] = m_binary_vec[i];
     }
+
+
 
     std::vector<char> puncture_out;
     for (int i = 0; i < cc_out.size(); i++) {
@@ -70,6 +80,7 @@ int main() {
         inner++;
     }
     std::cout << std::endl;
+
     std::cout << print_data.size() << std::endl;
     std::cout << print_data.capacity() << std::endl;
 
@@ -81,9 +92,6 @@ int main() {
 
     return 0;
 }
-
-
-
 
 
 

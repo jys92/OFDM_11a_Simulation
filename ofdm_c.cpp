@@ -27,7 +27,7 @@ void print_pattern_complex(T& print_contents) {
     int inner = 1;
     std::cout << typeid(T).name() << std::endl;
     for (auto elem : print_contents) {
-        std::cout << std::setw(8) << elem;
+        std::cout << std::setw(30) << elem;
         if (inner%8 == 0) {
             std::cout<<" ";
         }
@@ -53,7 +53,7 @@ T convolution_encode(T& cc_in) {
     return cc_out;
 }
 
-// implement Template, control bot char & int
+// implement Template, control both char & int
 std::vector<char> interleaver_add_sign(std::vector<char> in_put, int n_cbps, int n_bpsc) {
     int s = std::max(n_bpsc/2, 1);
     std::vector<char> out_put(n_cbps, 0);
@@ -92,7 +92,7 @@ void fft(std::vector<std::complex<double>>& a, bool inv) {
     }
     for (int i = 1; i < n; i <<= 1) {
         double x = inv ? M_PI / i : -M_PI / i;
-        std::complex<double> w = {cos(x), sin(x)};
+        std::complex<double> w = {std::cos(x), std::sin(x)};
         for (int j = 0; j < n; j += i << 1) {
             std::complex<double> th = {1, 0};
             for (int k = 0; k < i; k++) {
@@ -108,6 +108,59 @@ void fft(std::vector<std::complex<double>>& a, bool inv) {
             a[i] /= n;
         }
     }
+}
+
+template <typename T>
+class Ofdm_symbol {
+  private:
+    T data_input_;
+    static int symbol_number_;
+    int pilot_index_;
+
+  public:
+    Ofdm_symbol (T data_input, int pilot_index);
+    std::vector<std::complex<double>> generate();
+//    int count();
+};
+
+template <typename T>
+int Ofdm_symbol<T>::symbol_number_ = 0;
+
+template <typename T>
+Ofdm_symbol<T>::Ofdm_symbol(T data_input, int pilot_index) {
+    data_input_ = data_input;
+    pilot_index_ = pilot_index;
+    symbol_number_++;
+}
+
+template <typename T>
+std::vector<std::complex<double>> Ofdm_symbol<T>::generate() {
+    std::vector<char> pilot_sig = pilot_generator(pilot_index_);
+
+    T fd_signal_64 = {0, 0, 0, 0, 0, 0};
+    fd_signal_64.insert(fd_signal_64.end(),data_input_.begin(),data_input_.begin()+5);
+    fd_signal_64.push_back(pilot_sig[0]);
+    fd_signal_64.insert(fd_signal_64.end(),data_input_.begin()+5,data_input_.begin()+18);
+    fd_signal_64.push_back(pilot_sig[1]);
+    fd_signal_64.insert(fd_signal_64.end(),data_input_.begin()+18,data_input_.begin()+24);
+    fd_signal_64.push_back(0);
+    fd_signal_64.insert(fd_signal_64.end(),data_input_.begin()+24,data_input_.begin()+30);
+    fd_signal_64.push_back(pilot_sig[2]);
+    fd_signal_64.insert(fd_signal_64.end(),data_input_.begin()+30,data_input_.begin()+43);
+    fd_signal_64.push_back(pilot_sig[3]);
+    fd_signal_64.insert(fd_signal_64.end(),data_input_.begin()+43,data_input_.begin()+48);
+    fd_signal_64.insert(fd_signal_64.end(),5,0);
+
+    std::vector<std::complex<double>> fd_signal_64_c;
+    fd_signal_64_c.insert(fd_signal_64_c.begin(), fd_signal_64.begin()+32, fd_signal_64.end());
+    fd_signal_64_c.insert(fd_signal_64_c.end(), fd_signal_64.begin(), fd_signal_64.begin()+32);
+    fft(fd_signal_64_c, true);
+    std::vector<std::complex<double>> td_data_81;
+    td_data_81.push_back(0.5*fd_signal_64_c[48]);
+    td_data_81.insert(td_data_81.end(), fd_signal_64_c.begin()+49, fd_signal_64_c.end());
+    td_data_81.insert(td_data_81.end(), fd_signal_64_c.begin(), fd_signal_64_c.end());
+    td_data_81.push_back(0.5*fd_signal_64_c[0]);
+    return td_data_81;    
 }
 
 int main() {
@@ -153,29 +206,10 @@ int main() {
 
     signal_48 = interleaver_add_sign(signal_48, N_CBPS_signal_field, N_BPSC_signal_field);
 //    print_pattern_simple(signal_48);
-    std::vector<char> pilot_sig = pilot_generator(1);
 
-    std::vector<char> fd_signal_64 = {0, 0, 0, 0, 0, 0};
-    
-    fd_signal_64.insert(fd_signal_64.end(),signal_48.begin(),signal_48.begin()+5);
-    fd_signal_64.push_back(pilot_sig[0]);
-    fd_signal_64.insert(fd_signal_64.end(),signal_48.begin()+5,signal_48.begin()+18);
-    fd_signal_64.push_back(pilot_sig[1]);
-    fd_signal_64.insert(fd_signal_64.end(),signal_48.begin()+18,signal_48.begin()+24);
-    fd_signal_64.push_back(0);
-    fd_signal_64.insert(fd_signal_64.end(),signal_48.begin()+24,signal_48.begin()+30);
-    fd_signal_64.push_back(pilot_sig[2]);
-    fd_signal_64.insert(fd_signal_64.end(),signal_48.begin()+30,signal_48.begin()+43);
-    fd_signal_64.push_back(pilot_sig[3]);
-    fd_signal_64.insert(fd_signal_64.end(),signal_48.begin()+43,signal_48.begin()+48);
-    fd_signal_64.insert(fd_signal_64.end(),5,0);
-
-    std::vector<std::complex<double>> fd_signal_64_c;
-    fd_signal_64_c.insert(fd_signal_64_c.begin(), fd_signal_64.begin()+32, fd_signal_64.end());
-    fd_signal_64_c.insert(fd_signal_64_c.end(), fd_signal_64.begin(), fd_signal_64.begin()+32);
-
-    fft(fd_signal_64_c, true);    
-//    print_pattern_complex(fd_signal_64_c);
+    Ofdm_symbol<std::vector<char>> fd_signal(signal_48, 1);
+    std::vector<std::complex<double>> td_signal_81 = fd_signal.generate();
+//    print_pattern_complex(td_signal_81);
 
     std::vector<unsigned char> m_hex_vec;
     m_hex_vec ={0x04, 0x02, 0x00, 0x2E, 0x00, 0x60, 0x08, 0xCD, 0x37, 0xA6,
@@ -232,18 +266,7 @@ int main() {
     int Byte_Data = m_hex_vec.size();
     int N_BPSC = 4;
     int Packet_Num = puncture_out.size() / N_CBPS;
-    std::vector<char> interleaver_out;
-    std::vector<char> temp;
 
-    for (int i = 0; i < Packet_Num; i++) {
-        temp = interleaver_add_sign({&puncture_out[i*N_CBPS], &puncture_out[(i+1)*N_CBPS]}, N_CBPS, N_BPSC);
-        interleaver_out.insert(interleaver_out.end(), temp.begin(), temp.end());
-    }   
-//    print_pattern_simple(interleaver_out);
-
-    std::vector<std::complex<double>> fd_data;
-    std::vector<char> mapping_in;
-    
     std::vector<std::vector<char>> check_patterns = {{-1,-1,-1,-1}, {-1,-1,-1,1}, {-1,-1,1,-1},
        {-1,-1,1,1}, {-1,1,-1,-1}, {-1,1,-1,1}, {-1,1,1,-1}, {-1,1,1,1}, {1,-1,-1,-1}, 
        {1,-1,-1,1}, {1,-1,1,-1}, {1,-1,1,1}, {1,1,-1,-1}, {1,1,-1,1}, {1,1,1,-1}, {1,1,1,1}};
@@ -254,15 +277,27 @@ int main() {
     for (int i = 0; i< 16; i++)
         mapping_values[i] *= (1/std::sqrt(10.0));
 
-    for (int i = 0; i < interleaver_out.size() ; i+=N_BPSC) {
-        mapping_in = {&interleaver_out[i], &interleaver_out[i+N_BPSC]};
-        for (int j = 0; j < 16; j++)  // instead of 16???
-            if (mapping_in == check_patterns[j]) 
-                fd_data.push_back(mapping_values[j]);
-    }
-    print_pattern_complex(fd_data);
+    std::vector<char> interleaver_block;
+    std::vector<char> mapping_in;
+    std::vector<std::complex<double>> fd_data_block;
+    std::vector<std::complex<double>> td_data_block;
+    std::vector<std::complex<double>> td_data_sum;
+    
+    for (int i = 5; i < 6; i++) {
+        interleaver_block = interleaver_add_sign({&puncture_out[i*N_CBPS], &puncture_out[(i+1)*N_CBPS]}, N_CBPS, N_BPSC);
+        for (int j = 0; j < N_CBPS; j+=N_BPSC) {
+            mapping_in = {&interleaver_block[j], &interleaver_block[j+N_BPSC]};
+            for (int k = 0; k < 16; k++)  // instead of 16??? 
+                if (mapping_in == check_patterns[k]) 
+                    fd_data_block.push_back(mapping_values[k]);
+        }
+        Ofdm_symbol<std::vector<std::complex<double>>> td_data(fd_data_block, i);
+        td_data_block = td_data.generate();
+        td_data_sum.insert(td_data_sum.end(), td_data_block.begin(), td_data_block.end());
+    }    
+    print_pattern_complex(td_data_sum);
+
 
 
     return 0;
 }
-

@@ -1,3 +1,11 @@
+// Same with python implementation 
+// IEEE802.11 17 OFDM PHY & Annex I(Can be differnt)
+// For studying C++, STL, Class, template
+// Final Out-put is The entire packet for the BCC example in 802.11 Annex I (Can be differnt)
+// Need to implement graphic like python.
+// 2022.1 final update.
+
+
 #include <iostream>
 #include <vector>
 #include <complex>

@@ -21,15 +21,18 @@ void print_pattern_simple(const T& print_contents) {
     std::cout << " Data Capacity : " << print_contents.capacity() << std::endl;    
 }
 
-// Above function invole. 
+// Need to integrate above function  
 template <typename T>
 void print_pattern_complex(T& print_contents) {
     int inner = 1;
     std::cout << typeid(T).name() << std::endl;
     for (auto elem : print_contents) {
-        std::cout << std::setw(30) << elem;
-        if (inner%8 == 0) {
-            std::cout<<" ";
+        std::cout << std::setw(25) << elem;
+        if (inner%4 == 0) {
+            std::cout<<std::endl;
+        }
+        if (inner%80 == 0) {
+            std::cout<<std::endl;
         }
         inner++;
     }
@@ -53,7 +56,7 @@ T convolution_encode(T& cc_in) {
     return cc_out;
 }
 
-// implement Template, control both char & int
+// How does template to be implemented for control both char & int
 std::vector<char> interleaver_add_sign(std::vector<char> in_put, int n_cbps, int n_bpsc) {
     int s = std::max(n_bpsc/2, 1);
     std::vector<char> out_put(n_cbps, 0);
@@ -120,7 +123,7 @@ class Ofdm_symbol {
   public:
     Ofdm_symbol (T data_input, int pilot_index);
     std::vector<std::complex<double>> generate();
-//    int count();
+    int symbol_count();
 };
 
 template <typename T>
@@ -161,6 +164,11 @@ std::vector<std::complex<double>> Ofdm_symbol<T>::generate() {
     td_data_81.insert(td_data_81.end(), fd_signal_64_c.begin(), fd_signal_64_c.end());
     td_data_81.push_back(0.5*fd_signal_64_c[0]);
     return td_data_81;    
+}
+
+template <typename T>
+int Ofdm_symbol<T>::symbol_count() {
+    return symbol_number_; 
 }
 
 int main() {
@@ -281,9 +289,18 @@ int main() {
     std::vector<char> mapping_in;
     std::vector<std::complex<double>> fd_data_block;
     std::vector<std::complex<double>> td_data_block;
-    std::vector<std::complex<double>> td_data_sum;
     
-    for (int i = 5; i < 6; i++) {
+    std::vector<std::complex<double>> entire_symbols;
+
+    entire_symbols.insert(entire_symbols.begin(),td_short_161.begin(), td_short_161.end()-1);
+    entire_symbols.push_back(td_short_161[160]+td_long_161[0]);
+    entire_symbols.insert(entire_symbols.end(),td_long_161.begin()+1, td_long_161.end()-1);
+    entire_symbols.push_back(td_long_161[160]+td_signal_81[0]);
+    entire_symbols.insert(entire_symbols.end(),td_signal_81.begin()+1, td_signal_81.end()-1);
+
+
+    std::complex<double> last_data;
+    for (int i = 0; i < Packet_Num; i++) {
         interleaver_block = interleaver_add_sign({&puncture_out[i*N_CBPS], &puncture_out[(i+1)*N_CBPS]}, N_CBPS, N_BPSC);
         for (int j = 0; j < N_CBPS; j+=N_BPSC) {
             mapping_in = {&interleaver_block[j], &interleaver_block[j+N_BPSC]};
@@ -291,13 +308,27 @@ int main() {
                 if (mapping_in == check_patterns[k]) 
                     fd_data_block.push_back(mapping_values[k]);
         }
+        
+//        print_pattern_simple(interleaver_block);
+//        print_pattern_complex(fd_data_block);
+
         Ofdm_symbol<std::vector<std::complex<double>>> td_data(fd_data_block, i);
         td_data_block = td_data.generate();
-        td_data_sum.insert(td_data_sum.end(), td_data_block.begin(), td_data_block.end());
-    }    
-    print_pattern_complex(td_data_sum);
+        fd_data_block.clear();
+//        print_pattern_complex(td_data_block);
 
+        if (i == 0 ) {
+            entire_symbols.push_back(td_signal_81[80]+td_data_block[0]);
+            entire_symbols.insert(entire_symbols.end(), td_data_block.begin()+1, td_data_block.end()-1);    
+        }
+        else if (i > 0) {
+            entire_symbols.push_back(last_data+td_data_block[0]);
+            entire_symbols.insert(entire_symbols.end(), td_data_block.begin()+1, td_data_block.end()-1);    
+        }
+        last_data=td_data_block[80];        
+    }
 
+    print_pattern_complex(entire_symbols);
 
     return 0;
 }

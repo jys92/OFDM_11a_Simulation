@@ -13,6 +13,8 @@
 #include <typeinfo>
 using namespace std::complex_literals;
 
+#define M_PI       3.14159265358979323846
+
 template <typename T>
 void print_pattern_simple(const T& print_contents) {
     int inner = 1;
